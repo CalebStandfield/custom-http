@@ -1,0 +1,49 @@
+# ---- Rust ----
+# Compiled files
+/target/
+**/target/
+
+# Rust build outputs
+*.rlib
+*.rmeta
+
+# ---- Logs & Temp ----
+*.log
+*.tmp
+
+# ---- JetBrains RustRover / IntelliJ ----
+.idea/
+*.iml
+
+# RustRover stores workspace data here
+# (Safe to ignore — others can open the project and generate their own settings)
+workspace.xml
+tasks.xml
+usage.statistics.xml
+dictionaries/
+shelf/
+out/
+
+# ---- macOS / Windows / Linux junk ----
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# ---- Environment Files ----
+.env
+.env.local
+.env.*
+!.env.example
+
+# ---- Editor Backups ----
+*.swp
+*.swo
+*.bak
+*.old
+
+# ---- Coverage / Testing ----
+coverage/
+*.profraw
+*.profdata
