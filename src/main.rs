@@ -26,22 +26,39 @@ fn main() {
         Err(e) => panic!("Unable to bind to {}: {}", ADDRESS, e),
     };
 
+    // I'm not sure what number of threads is standard
+    // However, the book used 4, so for now I will use 4 as well
+    let thread_pool = thread_pool::ThreadPool::new(4);
+
     for stream in listener.incoming() {
         // Since .incoming() never returns a None I think .unwrap is okay for this.
         let stream = stream.unwrap();
-        handle_connection(stream);
+
+        thread_pool.execute(|| {
+            handle_connection(stream);
+        });
     }
 }
 
+/// Handles a connection from a client.
+///
+/// Writes the desired HTML page into the TcpStream.
+///
+/// # Behavior
+///
+/// If the contents of the filename cannot be read, the error will
+/// be logged into eprintln! Then write a new 500 Internal Server Error HTML page into the stream.
+/// This should most likely be changed to not log into eprintln!
+/// Such that we avoid leaking internal implementation to the user.
 fn handle_connection(mut stream: TcpStream) {
     let buffer = BufReader::new(&mut stream);
     let request_line = buffer.lines().next().unwrap().unwrap();
     let (status, filename) = http_handler(&request_line);
 
-    let html_page = match fs::read_to_string(filename) {
-        Ok(html_page) => html_page,
-        Err(e) => panic!("PANIC FOR NOW, SHOULD FIND MORE GRACEFUL SOLUTION {}", e),
-    };
+    let html_page = fs::read_to_string(filename).unwrap_or_else(|e| {
+        eprintln!("Error reading file {filename}: {e}");
+        String::from("<html><body><h1>500 Internal Server Error</h1></body></html>")
+    });
     let length = html_page.len();
 
     let response =
@@ -51,12 +68,12 @@ fn handle_connection(mut stream: TcpStream) {
 
 }
 
-/// Handles various html pages
+/// Handles various HTML pages
 ///
 /// # Example
 ///
-/// Html 200 page
-/// Html 404 page not found
+/// HTML 200-page
+/// HTML 404-page not found
 ///
 /// As well as other pages which can be added cleanly into this method.
 fn http_handler(response: &String) -> (&str, &str) {
