@@ -20,20 +20,20 @@ pub fn http_handler(stream: &TcpStream, response: String) {
         Err(e) => {
             match e.kind() {
                 ErrorKind::NotFound => {
-                    eprintln!("Error file not found{}: {}", filename, e);
-                    let (status, filename) = status_filename(String::from("GET / HTTP/1.1 404 NOT FOUND"));
+                    eprintln!("Error file not found {}: {}", filename, e);
+                    let (status, filename) = status_filename(String::from("GET /404 HTTP/1.1"));
                     write_response(&stream, status, &filename);
                     return;
                 }
                 ErrorKind::PermissionDenied => {
                     eprintln!("Error permission denied{}: {}", filename, e);
-                    let (status, filename) = status_filename(String::from("GET / HTTP/1.1 403 PERMISSION DENIED"));
+                    let (status, filename) = status_filename(String::from("GET /403 HTTP/1.1"));
                     write_response(&stream, status, &filename);
                     return;
                 }
                 _ => {
                     eprintln!("Internal server error {}: {}", filename, e);
-                    let (status, filename) = status_filename(String::from("GET / HTTP/1.1 500 INTERNAL SERVER ERROR"));
+                    let (status, filename) = status_filename(String::from("GET /500 HTTP/1.1"));
                     write_response(&stream, status, &filename);
                     return;
                 }
@@ -44,12 +44,24 @@ pub fn http_handler(stream: &TcpStream, response: String) {
     write_response(&stream, &status, &html_page);
 }
 
-
-fn status_filename<'a>(response: String) -> (& 'a str, & 'a str) {
-    match &response[..] {
-        "GET / HTTP/1.1" => ("HTTP/1.1 200 OK", "welcome.html"),
-        _ => ("HTTP/1.1 404 NOT FOUND", "404.html"),
+fn status_filename<'a>(response: String) -> (&'a str, String) {
+    let parts: Vec<&str> = response.split_whitespace().collect();
+    if parts.len() < 2 {
+        return ("HTTP/1.1 404", String::from("public/404.html"));
     }
+
+    let path = parts[1];
+
+    if path.contains("..") {
+        ("HTTP/1.1 404", String::from("public/404.html"))
+    } else if path == "/" {
+        ("HTTP/1.1 200 OK", String::from("public/welcome.html"))
+    } else {
+        let mut path = String::from(path);
+        path.push_str(".html");
+        ("HTTP/1.1 200 OK", format!("public{}", path))
+    }
+
 }
 
 fn write_response(mut stream: &TcpStream, status: &str, html_page: &str) {
