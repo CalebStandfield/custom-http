@@ -4,7 +4,7 @@ This project is a custom HTTP/1.1 server written from scratch in Rust.
 The goal is to explore how a real web server works internally by implementing the full stack manually — from socket management to concurrency and asynchronous I/O.
 
 It builds directly on what I learned from *The Rust Programming Language* book and extends those ideas into a larger, real-world system.
-Especially concurency and asynchronous programming. 
+Especially concurrency and asynchronous programming. 
 
 ---
 
@@ -46,7 +46,7 @@ forgive me if this looks like a child made it.
         
         response.rs
 
-Each component is written to be clear and self-contained, without `mod.rs` files (mostly cause I hate them and think they are outdated, but thats a discussion for later). The design is meant to keep things seperate and thus navigatable :)
+Each component is written to be clear and self-contained, without `mod.rs` files (mostly because I hate them and think they are outdated, but that's a discussion for later). The design is meant to keep things separate and thus navigable :)
 
 ---
 
@@ -61,7 +61,7 @@ Each component is written to be clear and self-contained, without `mod.rs` files
 
 ## Stack
 
-- Rust 1.91+     (I actually don't know, thats just what I have rn) 
+- Rust 1.91+ required (I actually don't know what the minimum version is, but 1.91 is what I'm on) 
 - `std::thread`, `std::sync`
 - [`mio`](https://crates.io/crates/mio)
 - [`mime_guess`](https://crates.io/crates/mime_guess)
@@ -70,4 +70,4 @@ Each component is written to be clear and self-contained, without `mod.rs` files
 
 ## Purpose
 
-This is in no way shape or form meant to replace an existing framework or library — it’s just an exercise in understanding what happens beneath them. By implementing concurrency, scheduling, and I/O from first principles, I'll be able see how performance and correctness interact in low-level systems programming, which is currently what I'm intrested in and would like a bit more practice in.
+This is in no way shape or form meant to replace an existing framework or library — it’s just an exercise in understanding what happens beneath them. By implementing concurrency, scheduling, and I/O from first principles, I'll be able to see how performance and correctness interact in low-level systems programming, which is currently what I'm interested in and would like a bit more practice in.
