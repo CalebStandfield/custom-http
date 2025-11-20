@@ -139,6 +139,12 @@ impl Reactor {
                     return Ok(());
                 }
                 Ok(n) => {
+                    self.poll.registry().reregister(
+                        &mut conn.stream,
+                        token,
+                        // Set to WRITABLE if we have queued bytes to send
+                        Interest::READABLE,
+                    )?;
                     conn.write_buffer.drain(..n);
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -198,6 +204,12 @@ impl Reactor {
             conn.write_buffer.extend_from_slice(header.as_bytes());
             conn.write_buffer.extend_from_slice(body);
         }
+
+        self.poll.registry().reregister(
+            &mut conn.stream,
+            token,
+            Interest::WRITABLE,
+        )?;
 
         Ok(())
     }
