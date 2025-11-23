@@ -15,7 +15,7 @@ The server is designed around three main goals:
 2. Build a **custom thread pool** to manage worker threads and prevent thread-per-connection overhead.
 3. Add **asynchronous I/O** for low-latency, non-blocking file serving.
 
-The final result is a small but capable HTTP server that can serve files, handle concurrent requests, and demonstrate how modern web servers achieve performance through parallelism and event-driven I/O.
+The final result is a small but capable HTTP server that can serve files, handle concurrent requests, learn how modern web servers achieve performance through parallelism and event-driven I/O, and while practicing Rust.
 
 ---
 

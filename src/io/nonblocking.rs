@@ -1,3 +1,4 @@
+use crate::http::response;
 use crate::thread_pool::ThreadPool;
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Poll, Token};
@@ -194,22 +195,29 @@ impl Reactor {
             }
         }
 
-        // TEMP TEST
-        if !conn.read_buffer.is_empty() && conn.write_buffer.is_empty() {
-            let body = b"Hello from mio\r\n";
-            let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: text/plain\r\n\r\n",
-                body.len()
-            );
-            conn.write_buffer.extend_from_slice(header.as_bytes());
-            conn.write_buffer.extend_from_slice(body);
-        }
+        if !conn.read_buffer.is_empty() {
+            let header_end = match conn.read_buffer.windows(4).position(|w| w == b"\r\n\r\n") {
+                Some(pos) => pos + 4,
+                None => return Ok(()),
+            };
 
-        self.poll.registry().reregister(
-            &mut conn.stream,
-            token,
-            Interest::WRITABLE,
-        )?;
+            let header_bytes = &conn.read_buffer[..header_end];
+            let header_text = String::from_utf8_lossy(header_bytes);
+
+            let mut lines = header_text.lines();
+            let request_line = match lines.next() {
+                Some(line) => line.to_string(),
+                None => return Ok(()), // TODO: later 400 this
+            };
+
+            let bytes = response::http_handler(request_line);
+
+            conn.write_buffer.extend_from_slice(&bytes);
+
+            self.poll
+                .registry()
+                .reregister(&mut conn.stream, token, Interest::WRITABLE)?;
+        }
 
         Ok(())
     }

@@ -21,12 +21,3 @@ const ADDRESS: &str = "127.0.0.1:8080";
 fn main() {
     nonblocking::run(ADDRESS).expect("TODO: Match errors");
 }
-
-// Handles a connection from a client.
-// 
-// Writes the desired page into the TcpStream.
-// fn handle_connection(mut stream: TcpStream) {
-//     let buffer = BufReader::new(&mut stream);
-//     let request_line = buffer.lines().next().unwrap().unwrap();
-//     let response = http::response::http_handler(request_line);
-// }
