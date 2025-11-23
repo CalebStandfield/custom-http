@@ -6,8 +6,6 @@
 //! blocking. Future implementations may be asynchronous.
 use crate::io;
 use mime_guess::{from_path, mime};
-use std::io::Write;
-use std::net::TcpStream;
 use std::path::Path;
 
 /// An enumeration representing different types of error pages that can be displayed in an application.
@@ -309,8 +307,7 @@ fn status_filename(response: String) -> (String, String) {
         }
 
         if !Path::new(&path).exists() {
-            return (
-                String::from(ErrorPage::NotFound.status()),
+            return (String::from(ErrorPage::NotFound.status()),
                 String::from(ErrorPage::NotFound.path()),
             );
         }
@@ -333,12 +330,12 @@ fn status_filename(response: String) -> (String, String) {
 fn build_response(http_response: HttpResponse) -> Vec<u8> {
     let status = http_response.status;
     let mime = http_response.content_type;
-    let (length, mut body_bytes): (usize, &[u8]) = match &http_response.body {
+    let (length, body_bytes): (usize, &[u8]) = match &http_response.body {
         Body::Text(text) => (text.len(), text.as_bytes()),
         Body::Binary(binary) => (binary.len(), binary),
     };
 
     let header = format!("{status}\r\nContent-Length: {length}\r\nContent-Type: {mime}\r\n\r\n");
-    let mut body = body_bytes.to_vec();
+    let body = body_bytes.to_vec();
     header.as_bytes().to_vec().into_iter().chain(body.into_iter()).collect()
 }

@@ -4,6 +4,7 @@ use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Poll, Token};
 use std::io;
 use std::io::{Read, Write};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
 
 struct Connection {
@@ -24,12 +25,15 @@ enum State {
 }
 
 const LISTENER: Token = Token(0);
+const POLL_DELAY: Duration = Duration::from_millis(10);
 
 struct Reactor {
     poll: Poll,
     listener: TcpListener,
     conns: slab::Slab<Connection>,
     pool: ThreadPool,
+    worker_tx: Sender<(Token, Vec<u8>)>,
+    worker_rx: Receiver<(Token, Vec<u8>)>,
 }
 
 impl Reactor {
@@ -37,6 +41,7 @@ impl Reactor {
         let poll = Poll::new()?;
         let mut listener = TcpListener::bind(addr.parse().unwrap())?;
         let pool = ThreadPool::new(4);
+        let (worker_tx, worker_rx) = channel();
         poll.registry()
             .register(&mut listener, LISTENER, Interest::READABLE)?;
         Ok(Self {
@@ -44,14 +49,25 @@ impl Reactor {
             listener,
             conns: slab::Slab::with_capacity(1024),
             pool,
+            worker_tx,
+            worker_rx,
         })
     }
     fn event_loop(&mut self) -> io::Result<()> {
         let mut events = Events::with_capacity(1024);
 
         loop {
-            self.poll
-                .poll(&mut events, Some(Duration::from_millis(1000)))?;
+            while let Ok((token, bytes)) = self.worker_rx.try_recv() {
+                let idx = token.0 as usize - 1;
+                if let Some(conn) = self.conns.get_mut(idx) {
+                    conn.write_buffer.extend_from_slice(&bytes);
+                    self.poll
+                        .registry()
+                        .reregister(&mut conn.stream, token, Interest::WRITABLE)?;
+                }
+            }
+
+            self.poll.poll(&mut events, Some(POLL_DELAY))?;
 
             for event in events.iter() {
                 let token = event.token();
@@ -140,12 +156,6 @@ impl Reactor {
                     return Ok(());
                 }
                 Ok(n) => {
-                    self.poll.registry().reregister(
-                        &mut conn.stream,
-                        token,
-                        // Set to WRITABLE if we have queued bytes to send
-                        Interest::READABLE,
-                    )?;
                     conn.write_buffer.drain(..n);
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -159,7 +169,14 @@ impl Reactor {
                     return Ok(());
                 }
             }
+
         }
+        if conn.write_buffer.is_empty() {
+            conn.state = State::Closed;
+            self.poll.registry().deregister(&mut conn.stream)?;
+            self.conns.remove(idx);
+        }
+
         Ok(())
     }
 
@@ -210,13 +227,13 @@ impl Reactor {
                 None => return Ok(()), // TODO: later 400 this
             };
 
-            let bytes = response::http_handler(request_line);
+            let tx = self.worker_tx.clone();
+            self.pool.execute(move || {
+                let bytes = response::http_handler(request_line);
+                tx.send((token, bytes)).unwrap();
+            });
 
-            conn.write_buffer.extend_from_slice(&bytes);
-
-            self.poll
-                .registry()
-                .reregister(&mut conn.stream, token, Interest::WRITABLE)?;
+            conn.read_buffer.drain(..header_end);
         }
 
         Ok(())
