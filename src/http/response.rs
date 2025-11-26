@@ -4,6 +4,7 @@
 //! `/public` directory, as well as helpers for detecting and returning
 //! appropriate MIME types. All functions here are synchronous and
 //! blocking. Future implementations may be asynchronous.
+
 use crate::io;
 use mime_guess::{from_path, mime};
 use std::path::Path;
@@ -179,7 +180,7 @@ enum Body {
 ///
 /// If the `write_response` function fails, the error will not be handled in this function.
 /// The caller of this function may want to log or handle any network-related errors outside of this context.
-pub fn http_handler(response: String) -> Vec<u8>{
+pub fn http_handler(response: String) -> Vec<u8> {
     let http_response: HttpResponse = create_http_response(response);
     build_response(http_response)
 }
@@ -211,7 +212,7 @@ pub fn http_handler(response: String) -> Vec<u8>{
 ///
 /// # Example
 /// ```
-/// let response = create_http_response(String::from("/index.html"));
+/// let response = create_http_response(String::from("/welcome.html"));
 /// println!("HTTP Status: {}", response.status);
 /// println!("Content Type: {}", response.content_type);
 /// ```
@@ -303,17 +304,62 @@ fn status_filename(response: String) -> (String, String) {
         path.insert_str(0, "public");
 
         if Path::new(&path).extension().is_none() {
-            path.push_str(".html");
+            path = try_extensions(&path).unwrap_or_else(|| format!("{path}.html"));
         }
 
         if !Path::new(&path).exists() {
-            return (String::from(ErrorPage::NotFound.status()),
+            return (
+                String::from(ErrorPage::NotFound.status()),
                 String::from(ErrorPage::NotFound.path()),
             );
         }
 
         (String::from("HTTP/1.1 200 OK"), format!("{}", path))
     }
+}
+
+/// Tries to find an existing file by appending common extensions to a given file path.
+///
+/// This function accepts a file path as a string input and iterates over a set list of file
+/// extensions: `.html`, `.css`, `.js`, `.jpeg`, `.jpg`, and `.png`. It appends each of these
+/// extensions to the provided path and checks if a file with that combined path exists in the file
+/// system. If a match is found, it returns the first matching extension as a `Some(String)`. If no
+/// files with the specified extensions exist for the given path, it returns `None`.
+///
+/// # Arguments
+///
+/// * `path` - The base file path to which extensions will be appended.
+///
+/// # Returns
+///
+/// * `Option<String>` - Returns `Some` containing the matching file extension if an existing file
+///   is found. Returns `None` if no matching file is found.
+///
+/// # Examples
+///
+/// ```
+/// use std::path::Path;
+///
+/// let result = try_extension("example_file");
+/// match result {
+///     Some(extension) => println!("File found with extension: {}", extension),
+///     None => println!("No matching file found."),
+/// }
+/// ```
+///
+/// # Note
+///
+/// This function uses the `Path::new(&temp).exists()` method to determine if the constructed file
+/// path exists in the file system.
+fn try_extensions(path: &String) -> Option<String> {
+    let extensions = vec![".html", ".css", ".js", ".jpeg", ".jpg", ".png"];
+    for extension in extensions {
+        let temp = path.clone() + extension;
+        if Path::new(&temp).exists() {
+            return Some(temp);
+        }
+    }
+    None
 }
 
 /// Writes an HTTP response to the provided TCP stream.
@@ -337,5 +383,10 @@ fn build_response(http_response: HttpResponse) -> Vec<u8> {
 
     let header = format!("{status}\r\nContent-Length: {length}\r\nContent-Type: {mime}\r\n\r\n");
     let body = body_bytes.to_vec();
-    header.as_bytes().to_vec().into_iter().chain(body.into_iter()).collect()
+    header
+        .as_bytes()
+        .to_vec()
+        .into_iter()
+        .chain(body.into_iter())
+        .collect()
 }
